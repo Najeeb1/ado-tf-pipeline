@@ -55,12 +55,28 @@ stages:
     jobs:
       - job: TerraformPlan
         steps:
+          # Install Terraform
+          - task: TerraformInstaller@0
+            inputs:
+              terraformVersion: $(terraformVersion)
 
           # Download the Terraform state artifact
           - task: DownloadPipelineArtifact@2
             inputs:
               artifactName: 'terraform-state'
               downloadPath: 'terraform'
+
+          # Initialize Terraform with backend configuration
+          - task: TerraformTaskV4@4
+            inputs:
+              provider: 'azurerm'
+              backendServiceArm: $(azureServiceConnection)
+              backendAzureRmResourceGroupName: $(backendResourceGroup)
+              backendAzureRmStorageAccountName: $(backendStorageAccount)
+              backendAzureRmContainerName: $(backendContainer)
+              backendAzureRmKey: $(backendKey)
+              command: 'init'
+              workingDirectory: 'terraform'
 
           - task: TerraformTaskV4@4
             inputs:
@@ -75,6 +91,10 @@ stages:
     jobs:
       - job: TerraformApply
         steps:
+          # Install Terraform
+          - task: TerraformInstaller@0
+            inputs:
+              terraformVersion: $(terraformVersion)
 
           # Download the Terraform state artifact
           - task: DownloadPipelineArtifact@2
@@ -82,11 +102,22 @@ stages:
               artifactName: 'terraform-state'
               downloadPath: 'terraform'
               
+          # Initialize Terraform with backend configuration
+          - task: TerraformTaskV4@4
+            inputs:
+              provider: 'azurerm'
+              backendServiceArm: $(azureServiceConnection)
+              backendAzureRmResourceGroupName: $(backendResourceGroup)
+              backendAzureRmStorageAccountName: $(backendStorageAccount)
+              backendAzureRmContainerName: $(backendContainer)
+              backendAzureRmKey: $(backendKey)
+              command: 'init'
+              workingDirectory: 'terraform'
+              
           - task: TerraformTaskV4@4
             inputs:
               provider: 'azurerm'
               command: 'apply'
-              backendServiceArm: $(azureServiceConnection)
-              commandOptions: '--auto-approve'
               environmentServiceNameAzureRM: $(azureServiceConnection)
+              commandOptions: '-auto-approve'
               workingDirectory: 'terraform'
