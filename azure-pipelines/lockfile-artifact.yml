@@ -40,7 +40,7 @@ stages:
           - task: TerraformTaskV4@4
             inputs:
               provider: 'azurerm'
-              command: 'validate'
+              command: 'validate'  # Validate Terraform configuration
               workingDirectory: 'terraform'
 
           # Publish the Terraform state as an artifact
@@ -55,7 +55,7 @@ stages:
     jobs:
       - job: TerraformPlan
         steps:
-          # Install Terraform in this job (NEW) 
+          # Install Terraform on this agent as well
           - task: TerraformInstaller@0
             inputs:
               terraformVersion: $(terraformVersion)
@@ -66,6 +66,13 @@ stages:
               artifactName: 'terraform-state'
               downloadPath: 'terraform'
 
+          # Fix provider permissions (NEW)
+          - script: |
+              chmod +x terraform/.terraform/providers/registry.terraform.io/hashicorp/azurerm/*/terraform-provider-azurerm*
+              chmod +x terraform/.terraform/providers/registry.terraform.io/hashicorp/random/*/terraform-provider-random*
+            displayName: 'Fix provider permissions'
+
+          # Run Terraform plan
           - task: TerraformTaskV4@4
             inputs:
               provider: 'azurerm'
@@ -79,7 +86,7 @@ stages:
     jobs:
       - job: TerraformApply
         steps:
-          # Install Terraform in this job (NEW)
+          # Install Terraform
           - task: TerraformInstaller@0
             inputs:
               terraformVersion: $(terraformVersion)
@@ -89,7 +96,14 @@ stages:
             inputs:
               artifactName: 'terraform-state'
               downloadPath: 'terraform'
-              
+
+          # Fix provider permissions (NEW)
+          - script: |
+              chmod +x terraform/.terraform/providers/registry.terraform.io/hashicorp/azurerm/*/terraform-provider-azurerm*
+              chmod +x terraform/.terraform/providers/registry.terraform.io/hashicorp/random/*/terraform-provider-random*
+            displayName: 'Fix provider permissions'
+
+          # Run Terraform apply
           - task: TerraformTaskV4@4
             inputs:
               provider: 'azurerm'
