@@ -15,16 +15,17 @@ variables:
   backendKey: 'terraform.tfstate'  # State file name in remote backend
 
 stages:
-  # Stage 1: Initialization (init, validate, lint)
+  # Stage 1: Initialization
   - stage: Initialization
     jobs:
       - job: TerraformInit
         steps:
-          - task: TerraformInstaller@0  # Install Terraform
+          # Install Terraform
+          - task: TerraformInstaller@0
             inputs:
               terraformVersion: $(terraformVersion)
 
-          # Initialize Terraform
+          # Initialize Terraform backend
           - task: TerraformTaskV4@4
             inputs:
               provider: 'azurerm'
@@ -33,17 +34,17 @@ stages:
               backendAzureRmStorageAccountName: $(backendStorageAccount)
               backendAzureRmContainerName: $(backendContainer)
               backendAzureRmKey: $(backendKey)
-              command: 'init'  # Initialize Terraform
+              command: 'init'
               workingDirectory: 'terraform'
 
           # Validate Terraform configuration
           - task: TerraformTaskV4@4
             inputs:
               provider: 'azurerm'
-              command: 'validate'  # Validate Terraform configuration
+              command: 'validate'
               workingDirectory: 'terraform'
 
-          # Publish the Terraform state as an artifact
+          # Publish Terraform configuration (not the .terraform folder)
           - task: PublishPipelineArtifact@1
             inputs:
               targetPath: 'terraform'
@@ -55,22 +56,23 @@ stages:
     jobs:
       - job: TerraformPlan
         steps:
-          # Install Terraform on this agent as well
+          # Install Terraform again (fresh agent)
           - task: TerraformInstaller@0
             inputs:
               terraformVersion: $(terraformVersion)
 
-          # Download the Terraform state artifact
+          # Download Terraform configuration artifact
           - task: DownloadPipelineArtifact@2
             inputs:
               artifactName: 'terraform-state'
               downloadPath: 'terraform'
 
-          # Fix provider permissions (NEW)
-          - script: |
-              chmod +x terraform/.terraform/providers/registry.terraform.io/hashicorp/azurerm/*/terraform-provider-azurerm*
-              chmod +x terraform/.terraform/providers/registry.terraform.io/hashicorp/random/*/terraform-provider-random*
-            displayName: 'Fix provider permissions'
+          # Initialize Terraform (downloads provider binaries)
+          - task: TerraformTaskV4@4
+            inputs:
+              provider: 'azurerm'
+              command: 'init'
+              workingDirectory: 'terraform'
 
           # Run Terraform plan
           - task: TerraformTaskV4@4
@@ -80,7 +82,7 @@ stages:
               environmentServiceNameAzureRM: $(azureServiceConnection)
               workingDirectory: 'terraform'
 
-  # Stage 3: Apply (with manual approval)
+  # Stage 3: Apply
   - stage: Apply
     dependsOn: Plan
     jobs:
@@ -91,19 +93,20 @@ stages:
             inputs:
               terraformVersion: $(terraformVersion)
 
-          # Download the Terraform state artifact
+          # Download Terraform configuration artifact
           - task: DownloadPipelineArtifact@2
             inputs:
               artifactName: 'terraform-state'
               downloadPath: 'terraform'
 
-          # Fix provider permissions (NEW)
-          - script: |
-              chmod +x terraform/.terraform/providers/registry.terraform.io/hashicorp/azurerm/*/terraform-provider-azurerm*
-              chmod +x terraform/.terraform/providers/registry.terraform.io/hashicorp/random/*/terraform-provider-random*
-            displayName: 'Fix provider permissions'
+          # Initialize Terraform (downloads provider binaries)
+          - task: TerraformTaskV4@4
+            inputs:
+              provider: 'azurerm'
+              command: 'init'
+              workingDirectory: 'terraform'
 
-          # Run Terraform apply
+          # Apply Terraform changes
           - task: TerraformTaskV4@4
             inputs:
               provider: 'azurerm'
