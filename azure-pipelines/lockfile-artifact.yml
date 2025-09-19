@@ -43,10 +43,20 @@ stages:
               command: 'validate'
               workingDirectory: 'terraform'
 
-          # Publish the Terraform state as an artifact
+          # Copy Terraform files excluding .terraform directory
+          - task: CopyFiles@2
+            inputs:
+              SourceFolder: 'terraform'
+              Contents: |
+                **
+                !.terraform/**
+                !.terraform.lock.hcl
+              TargetFolder: '$(Build.ArtifactStagingDirectory)/terraform-config'
+
+          # Publish the Terraform configuration (without .terraform directory)
           - task: PublishPipelineArtifact@1
             inputs:
-              targetPath: 'terraform'
+              targetPath: '$(Build.ArtifactStagingDirectory)/terraform-config'
               artifactName: 'terraform-state'
 
   # Stage 2: Plan
