@@ -15,17 +15,16 @@ variables:
   backendKey: 'terraform.tfstate'  # State file name in remote backend
 
 stages:
-  # Stage 1: Initialization
+  # Stage 1: Initialization (init, validate, lint)
   - stage: Initialization
     jobs:
       - job: TerraformInit
         steps:
-          # Install Terraform
-          - task: TerraformInstaller@0
+          - task: TerraformInstaller@0  # Install Terraform
             inputs:
               terraformVersion: $(terraformVersion)
 
-          # Initialize Terraform backend
+          # Initialize Terraform
           - task: TerraformTaskV4@4
             inputs:
               provider: 'azurerm'
@@ -34,7 +33,7 @@ stages:
               backendAzureRmStorageAccountName: $(backendStorageAccount)
               backendAzureRmContainerName: $(backendContainer)
               backendAzureRmKey: $(backendKey)
-              command: 'init'
+              command: 'init'  # Initialize Terraform
               workingDirectory: 'terraform'
 
           # Validate Terraform configuration
@@ -44,7 +43,7 @@ stages:
               command: 'validate'
               workingDirectory: 'terraform'
 
-          # Publish Terraform configuration (not the .terraform folder)
+          # Publish the Terraform state as an artifact
           - task: PublishPipelineArtifact@1
             inputs:
               targetPath: 'terraform'
@@ -56,25 +55,13 @@ stages:
     jobs:
       - job: TerraformPlan
         steps:
-          # Install Terraform again (fresh agent)
-          - task: TerraformInstaller@0
-            inputs:
-              terraformVersion: $(terraformVersion)
 
-          # Download Terraform configuration artifact
+          # Download the Terraform state artifact
           - task: DownloadPipelineArtifact@2
             inputs:
               artifactName: 'terraform-state'
               downloadPath: 'terraform'
 
-          # Initialize Terraform (downloads provider binaries)
-          - task: TerraformTaskV4@4
-            inputs:
-              provider: 'azurerm'
-              command: 'init'
-              workingDirectory: 'terraform'
-
-          # Run Terraform plan
           - task: TerraformTaskV4@4
             inputs:
               provider: 'azurerm'
@@ -82,31 +69,19 @@ stages:
               environmentServiceNameAzureRM: $(azureServiceConnection)
               workingDirectory: 'terraform'
 
-  # Stage 3: Apply
+  # Stage 3: Apply (with manual approval)
   - stage: Apply
     dependsOn: Plan
     jobs:
       - job: TerraformApply
         steps:
-          # Install Terraform
-          - task: TerraformInstaller@0
-            inputs:
-              terraformVersion: $(terraformVersion)
 
-          # Download Terraform configuration artifact
+          # Download the Terraform state artifact
           - task: DownloadPipelineArtifact@2
             inputs:
               artifactName: 'terraform-state'
               downloadPath: 'terraform'
-
-          # Initialize Terraform (downloads provider binaries)
-          - task: TerraformTaskV4@4
-            inputs:
-              provider: 'azurerm'
-              command: 'init'
-              workingDirectory: 'terraform'
-
-          # Apply Terraform changes
+              
           - task: TerraformTaskV4@4
             inputs:
               provider: 'azurerm'
